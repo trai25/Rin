@@ -1,24 +1,20 @@
-import { treaty } from '@elysiajs/eden'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { Helmet } from 'react-helmet'
-import { App as Server } from 'rin-server/src/server'
+import { configureModalAppElement } from '@rin/ui'
+import 'remixicon/fonts/remixicon.css'
 import App from './App'
 import './index.css'
-import { siteName } from './utils/constants'
-import { listenSystemMode } from './utils/darkModeUtils'
-import Modal from 'react-modal';
+import './components.css'
+import { GlobalErrorBoundary } from './components/error-boundary.tsx'
+import { bootstrapApp } from './app/bootstrap'
 
-export const endpoint = process.env.API_URL || 'http://localhost:3001'
-export const oauth_url = process.env.OAUTH_URL || (process.env.API_URL + '/user/github')
-export const client = treaty<Server>(endpoint)
-listenSystemMode()
+bootstrapApp()
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <Helmet>
-      <title>{siteName}</title>
-    </Helmet>
-    <App />
+    <GlobalErrorBoundary>
+      <App />
+    </GlobalErrorBoundary>
   </React.StrictMode>
 )
-Modal.setAppElement('#root');
+configureModalAppElement('#root');

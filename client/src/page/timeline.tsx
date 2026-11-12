@@ -1,26 +1,48 @@
-import { useEffect, useRef, useState } from "react"
-import { Helmet } from 'react-helmet'
-import { Link } from "wouter"
-import { Waiting } from "../components/loading"
-import { client } from "../main"
-import { headersWithAuth } from "../utils/auth"
-import { siteName } from "../utils/constants"
+import {useEffect, useRef, useState} from "react"
+import {Helmet} from 'react-helmet'
+import {Link} from "wouter"
+import {Waiting} from "../components/loading"
+import { client } from "../app/runtime"
+import {useSiteConfig} from "../hooks/useSiteConfig";
+import {siteName} from "../utils/constants"
+import {useTranslation} from "react-i18next";
+
+interface FeedItem {
+    id: number;
+    createdAt: Date;
+    title: string | null;
+}
 
 export function TimelinePage() {
-    const [feeds, setFeeds] = useState<Partial<Record<number, { id: number; title: string | null; createdAt: Date; }[]>>>()
+    const [feeds, setFeeds] = useState<Partial<Record<number, FeedItem[]>>>()
     const [length, setLength] = useState(0)
     const ref = useRef(false)
+    const { t } = useTranslation()
+    const siteConfig = useSiteConfig();
     function fetchFeeds() {
-        client.feed.timeline.get({
-            headers: headersWithAuth()
-        }).then(({ data }) => {
-            if (data && typeof data != 'string') {
-                setLength(data.length)
-                const groups = Object.groupBy(data, ({ createdAt }) => new Date(createdAt).getFullYear())
-                setFeeds(groups)
+        client.feed.timeline()
+        .then(({ data }) => {
+            if (data) {
+                const arr = Array.isArray(data) ? data : []
+                setLength(arr.length)
+                // 兼容的分组逻辑
+                const groups = (Object.groupBy
+                    ? Object.groupBy(arr, ({ createdAt }) => new Date(createdAt).getFullYear())
+                    : arr.reduce<Record<number, any[]>>((acc, item) => {
+                        const key = new Date(item.createdAt).getFullYear()
+                        ;(acc[key] ||= []).push(item)
+                        return acc
+                    }, {})
+                )
+
+                setFeeds(groups as any)
             }
         })
+        .catch(err => {
+            console.error("fetchFeeds error:", err)
+        })
     }
+
     useEffect(() => {
         if (ref.current) return
         fetchFeeds()
@@ -29,10 +51,10 @@ export function TimelinePage() {
     return (
         <>
             <Helmet>
-                <title>{`${"时间线"} - ${process.env.NAME}`}</title>
+                <title>{`${t('timeline')} - ${siteConfig.name}`}</title>
                 <meta property="og:site_name" content={siteName} />
-                <meta property="og:title" content={"时间线"} />
-                <meta property="og:image" content={process.env.AVATAR} />
+                <meta property="og:title" content={t('timeline')} />
+                <meta property="og:image" content={siteConfig.avatar} />
                 <meta property="og:type" content="article" />
                 <meta property="og:url" content={document.URL} />
             </Helmet>
@@ -40,11 +62,11 @@ export function TimelinePage() {
                 <main className="w-full flex flex-col justify-center items-center mb-8 ani-show">
                     <div className="wauto text-start text-black dark:text-white py-4 text-4xl font-bold">
                         <p>
-                            时间轴
+                            {t('timeline')}
                         </p>
                         <div className="flex flex-row justify-between">
                             <p className="text-sm mt-4 text-neutral-500 font-normal">
-                                共有 {length} 篇文章
+                                {t('article.total$count', { count: length })}
                             </p>
                         </div>
                     </div>
@@ -52,13 +74,16 @@ export function TimelinePage() {
                         <div key={year} className="wauto flex flex-col justify-center items-start">
                             <h1 className="flex flex-row items-center space-x-2">
                                 <span className="text-2xl font-bold t-primary ">
-                                    {year} 年
+                                    {t('year$year', { year: year })}
                                 </span>
-                                <span className="text-sm t-secondary">{feeds[+year]?.length} 篇</span>
+                                <span className="text-sm t-secondary">
+                                    {t('article.total_short$count', { count: feeds[+year]?.length })}
+                                    </span>
                             </h1>
                             <div className="w-full flex flex-col justify-center items-start my-4">
                                 {feeds[+year]?.map(({ id, title, createdAt }) => (
-                                    <FeedItem key={id} id={id.toString()} title={title || "无标题"} createdAt={new Date(createdAt)} />
+                                    <FeedItem key={id} id={id.toString()} title={title || t('unlisted')}
+                                              createdAt={new Date(createdAt)}/>
                                 ))}
                             </div>
                         </div>
@@ -72,15 +97,15 @@ export function TimelinePage() {
 export function FeedItem({ id, title, createdAt }: { id: string, title: string, createdAt: Date }) {
     const formatter = new Intl.DateTimeFormat('en-US', { day: '2-digit', month: '2-digit' });
     return (
-        <div className="flex flex-row pl-8">
-            <div className="flex flex-row items-center">
+        <div className="flex min-w-0 flex-row pl-8">
+            <div className="flex shrink-0 flex-row items-center">
                 <div className="w-2 h-2 bg-theme rounded-full"></div>
             </div>
-            <div className="flex-1 rounded-2xl m-2 duration-300 flex flex-row items-center space-x-4   ">
-                <span className="t-secondary text-sm" title={new Date(createdAt).toLocaleString()}>
+            <div className="m-2 flex min-w-0 flex-1 flex-row items-center space-x-4 rounded-2xl duration-300">
+                <span className="shrink-0 text-sm t-secondary" title={new Date(createdAt).toLocaleString()}>
                     {formatter.format(new Date(createdAt))}
                 </span>
-                <Link href={`/feed/${id}`} target="_blank" className="text-base t-primary hover:text-theme text-pretty overflow-hidden">
+                <Link href={`/feed/${id}`} target="_blank" rel="noopener noreferrer" className="min-w-0 break-words text-base t-primary hover:text-theme text-pretty [overflow-wrap:anywhere]">
                     {title}
                 </Link>
             </div>

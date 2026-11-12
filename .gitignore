@@ -4,12 +4,14 @@ dist/**
 .turbo
 *.db
 .env
-bun.lockb
+.secrets
 test.ts
 *.log
 .env.production
 .wrangler
 wrangler.toml
+.vite
+coverage/
 # Logs
 logs
 npm-debug.log*
@@ -33,3 +35,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+/.dev.vars
+
+# Bun
+.bun/*
